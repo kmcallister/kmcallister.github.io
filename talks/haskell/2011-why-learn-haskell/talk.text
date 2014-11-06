@@ -1,0 +1,994 @@
+% Why learn Haskell?
+% Keegan McAllister
+% October 11, 2011
+
+
+# Composability
+
+The central challenge of programming (Dijkstra, 2000):
+
+\begin{quote}
+How not to make a mess of it
+\end{quote}
+
+\vspace{1em}
+
+It helps to build programs from composable parts
+
+* Combine in flexible yet well-defined ways
+
+\vspace{1em}
+
+Haskell is a language uniquely suited to this goal
+
+
+# Functions
+
+> factorial 0 = 1
+> factorial n = n * factorial (n-1)
+
+\vspace{1em}
+
+Whitespace for function application
+
+\vspace{0.5em}
+
+\hspace{2em} `f x` \hspace{0.6em} not \hspace{0.6em} `f(x)`
+
+\vspace{1em}
+
+Parentheses only for grouping
+
+
+# Lists
+
+A list is either
+
+* the empty list `[]`, or
+
+* a first element `x` and a remaining list `xs`, written `(x:xs)`
+
+\vspace{1em}
+
+Use these patterns to build and to inspect lists
+
+\vspace{1em}
+
+> length []     = 0
+> length (x:xs) = 1 + length xs
+
+
+# Declarative programming
+
+Describe results, not individual steps
+
+\vspace{1em}
+
+> -- merge two sorted lists
+> merge xs [] = xs
+> merge [] ys = ys
+> merge (x:xs) (y:ys)
+>   | x < y     = x : merge xs (y:ys)
+>   | otherwise = y : merge (x:xs) ys
+
+
+# Equational reasoning
+
+Functions on functions
+
+> map f []     = []
+> map f (x:xs) = f x : map f xs
+>
+> (f . g) x = f (g x)
+
+\vspace{1em}
+
+Reason by substituting equals for equals
+
+\vspace{0.5em}
+
+\begin{tabular}{lcl}
+\lstinline!map f (map g xs)! & $\equiv$ & \lstinline!map (f . g) xs! \\
+\lstinline!map f . map g!    & $\equiv$ & \lstinline!map (f . g)!
+\end{tabular}
+
+
+# Lazy evaluation
+
+Expressions aren't evaluated until result is needed
+
+\vspace{1em}
+
+> -- two infinite lists
+> evens = 0 : map (+1) odds
+> odds  = map (+1) evens
+
+\begin{verbatim}
+GHCi> take 16 evens
+[0,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30]
+\end{verbatim}
+
+
+# Laziness separates concerns: example 1
+
+> minimum = head . sort
+
+\vspace{1em}
+
+\begin{tabular}{lcl}
+\lstinline!sort! & $\in$ & $O(n \log n)$ \\
+\lstinline!minimum! & $\in$ & $O(n)$
+\end{tabular}
+
+\vspace{1em}
+
+...for careful `sort` implementations
+
+
+# Laziness separates concerns: example 2
+
+> foldr f z []     = z
+> foldr f z (x:xs) = f x (foldr f z xs)
+>
+> True  || x = True
+> False || x = x
+>
+> or = foldr (||) False
+>
+> any p = or . map p
+
+\begin{verbatim}
+GHCi> any (> 7) [1..]  -- an infinite list
+True
+\end{verbatim}
+
+
+# Static types
+
+Types exist at compile time; writing them is optional
+
+\vspace{1em}
+
+> not :: Bool -> Bool
+>
+> map :: (a -> b) ->  [a] -> [b]
+> map :: (a -> b) -> ([a] -> [b])
+
+\vspace{1em}
+
+Types catch mistakes but stay out of your way otherwise
+
+
+# Algebraic data
+
+Define and inspect data by enumerating cases
+
+\vspace{1em}
+
+> data Tree
+>   = Leaf
+>   | Node Int Tree Tree
+>
+> depth :: Tree -> Int
+> depth Leaf = 0
+> depth (Node n x y)
+>   = 1 + max (depth x) (depth y)
+
+
+# Pattern-matching is composable
+
+Patterns can be nested
+
+\vspace{1em}
+
+> rotate :: Tree -> Tree
+>
+> rotate (Node m (Node n x y) z)
+>       = Node n x (Node m y z)
+>
+> rotate t = t
+
+
+# Parametric polymorphism
+
+> data Tree t
+>   = Leaf
+>   | Node t (Tree t) (Tree t)
+>
+> treeMap :: (a -> b) -> Tree a -> Tree b
+
+\vspace{1em}
+
+Polymorphic type disallows hidden special cases
+
+> -- ok
+> treeMap f (Node v x y) = ...
+>
+> -- error: not polymorphic!
+> treeMap f (Node [2,7] x y) = ...
+
+
+# Sharing immutable data
+
+> data Tree t
+>   = Leaf
+>   | Node t (Tree t) (Tree t)
+>
+> insert x Leaf = Node x Leaf Leaf
+> insert x (Node y a b)
+>   | x < y     = Node y (insert x a) b
+>   | otherwise = Node y a (insert x b)
+
+\vspace{1em}
+
+New tree shares nodes with old
+
+* Great for lock-free concurrency
+
+
+# Embedded languages
+
+Libraries can feel like specialized languages
+
+\vspace{1em}
+
+> tree :: Parser (Tree String)
+> tree = leaf <|> node where
+>   leaf = Leaf <$ char '.'
+>   node = Node <$> some alphaNum <* char '('
+>               <*> tree <*> tree <* char ')'
+
+\begin{verbatim}
+GHCi> parseTest tree "x(y(..).)"
+Node "x" (Node "y" Leaf Leaf) Leaf
+\end{verbatim}
+
+
+# Power of embedded languages
+
+Embedded languages use Haskell features for free
+
+\vspace{1em}
+
+> many    :: Parser a -> Parser [a]
+> satisfy :: (Char -> Bool) -> Parser Char
+
+\vspace{1em}
+
+Grammar description for parser can use
+
+* functions
+
+* recursion
+
+* lists and other data structures
+
+
+# IO in Haskell
+
+IO is an imperative language embedded in Haskell
+
+> -- IO action
+> getChar :: IO Char
+>
+> -- function returning IO action
+> putChar :: Char -> IO ()
+
+\vspace{1em}
+
+An IO action is an ordinary first-class value
+
+An inert description of IO which *could* be performed
+
+\vspace{1em}
+
+**Evaluation ≠ execution**
+
+
+# Combining IO actions
+
+Use result of one IO action to compute another
+
+> (>>=) :: IO a -> (a -> IO b) -> IO b
+>
+> main =
+>   getLine >>= (\name ->
+>   putStrLn ("Hello " ++ name))
+
+\vspace{1em}
+
+Special syntax is available:
+
+> main = do
+>   name <- getLine
+>   putStrLn ("Hello " ++ name)
+
+# First-class IO
+
+Define your own control flow!
+
+\vspace{1em}
+
+> forever x = x >> forever x
+>
+> for [] f = return ()
+> for (x:xs) f = do
+>   f x
+>   for xs f
+>
+> for2 xs f = sequence_ (map f xs)
+>
+> main = forever (for [1,2,3] print)
+
+
+# Example: scoped resources
+
+> bracket
+>   :: IO a         -- acquire
+>   -> (a -> IO b)  -- release
+>   -> (a -> IO c)  -- do work
+>   -> IO c         -- result
+>
+> withFile
+>   :: FilePath -> (Handle -> IO t) -> IO t
+> withFile name =
+>   bracket (openFile name WriteMode) hClose
+>
+> main = withFile "foo.txt" (\h -> hPrint h 3)
+
+
+# Concurrency
+
+Lightweight threads
+
+> forkIO :: IO () -> IO ThreadId
+
+\vspace{1em}
+
+Message channels
+
+> newChan   :: IO (Chan a)
+> readChan  :: Chan a      -> IO a
+> writeChan :: Chan a -> a -> IO ()
+
+
+# Concurrency example
+
+> startLogger :: IO (String -> IO ())
+> startLogger = do
+>   chan <- newChan
+>   forkIO (forever
+>     (readChan chan >>= putStrLn))
+>   return (writeChan chan)
+>
+> main :: IO ()
+> main = do
+>   lg <- startLogger
+>   lg "Hello, world!"
+
+\vspace{1em}
+
+`Chan` is hidden; expose only what's needed
+
+
+# Software transactional memory
+
+How do threads coordinate access to shared state?
+
+* Locks are error-prone and don't compose
+
+\vspace{1em}
+
+Transactions provide an alternative
+
+* Build transactions the same way as IO actions
+
+* Atomic execution is guaranteed
+
+
+# Building transactions
+
+Example: transfer funds between accounts
+
+\vspace{1em}
+
+> transfer amount sender receiver = do
+>   -- read current balances
+>   senderBal   <- readTVar sender
+>   receiverBal <- readTVar receiver
+>
+>   -- write new balances
+>   writeTVar sender   (senderBal   - amount)
+>   writeTVar receiver (receiverBal + amount)
+
+\vspace{1em}
+
+Concurrent transfers would let you double-spend money!
+
+Can't happen because this is all one transaction
+
+
+# Composing transactions
+
+We can combine transactions:
+
+\vspace{1em}
+
+> sale cost buyer seller = do
+>  transfer 1    (goods seller) (goods buyer )
+>  transfer cost (money buyer ) (money seller)
+
+\vspace{1em}
+
+Still a single transaction; still atomic
+
+
+# Running transactions
+
+Run any transaction atomically
+
+\vspace{1em}
+
+> atomically :: STM a -> IO a
+>
+> main = do
+>   ...
+>   atomically (sale 3 alice bob)
+>   ...
+
+
+# Transaction guarantees
+
+Transactions have a different type from IO actions
+
+> atomically :: STM a -> IO a
+
+\vspace{1em}
+
+So transactions can't
+
+* affect the outside world
+* run outside `atomically`
+
+\vspace{1em}
+
+Lacking this property is why Microsoft's transactions for C# failed
+
+
+# Transaction failure
+
+What if the sender has insufficient funds?
+
+\vspace{1em}
+
+> transfer amount sender receiver = do
+>   senderBal <- readTVar sender
+>   when (senderBal < amount)
+>     retry
+>   ...
+
+\vspace{1em}
+
+Acts like immediate retry
+
+\vspace{1em}
+
+Implementation is more efficient
+
+
+# Parallelism without concurrency
+
+So Haskell supports a few approaches to threading
+
+\vspace{2em}
+
+What about pure computation on multiple cores?
+
+* Shouldn't need explicit threads at all
+
+
+# Pure parallelism
+
+~~~~
+resS = map         complexFunction bigInput
+resP = parMap rseq complexFunction bigInput
+~~~~
+
+\vspace{1em}
+
+We know `resS` equals `resP`
+
+* but `resP` might evaluate faster
+
+\vspace{1em}
+
+Can place parallelism hints anywhere
+
+* without changing results
+
+* without fear of race conditions or deadlock
+
+
+# The real world
+
+Haskell code looks nice$\ldots$
+
+\vspace{2em}
+
+but can we use it to solve real problems?
+
+
+# Commercial users
+
+A niche language with many niches
+
+\vspace{0.5em}
+
+* Amgen\footnote[1]{paper / talk / code available}: biotech simulations
+
+* Bluespec: hardware design tools
+
+* Eaton\footnotemark[1]: EDSL for hard realtime vehicle systems
+
+* Ericsson: digital signal processing
+
+* Facebook\footnotemark[1]: automated refactoring of PHP code
+
+* Galois\footnotemark[1]: systems, crypto projects for NASA, DARPA, NSA
+
+* Google\footnotemark[1]: managing virtual machine clusters
+
+* Janrain: single sign-on through social media
+
+* Lots of banks: ABN AMRO\footnotemark[1], Bank of America,
+  Barclays\footnotemark[1], Credit Suisse\footnotemark[1],
+  Deutsche Bank\footnotemark[1], Standard Chartered
+
+
+# Open-source applications in Haskell
+
+xmonad: tiling window manager for X11
+
+* Fast and flexible
+
+* Great multi-monitor support
+
+* Configured in Haskell, with seamless recompile
+
+\vspace{1em}
+
+pandoc: markup format converter
+
+* Markdown, HTML, \LaTeX, Docbook, OpenDocument, $\ldots$
+
+* Syntax highlighting, math rendering
+
+* Used in making these slides
+
+
+# The Glorious Glasgow Haskell Compiler
+
+GHC implements the Haskell language
+
+* with many extensions
+
+\vspace{1em}
+
+GHC produces optimized native-code executables
+
+* directly or via LLVM
+
+\vspace{1em}
+
+GHCi: interactive interpreter
+
+\vspace{1em}
+
+GHC as a library: Haskell eval in your own app
+
+
+# GHC runtime system
+
+One OS thread per CPU core
+
+* Haskell threads are scheduled preemptively
+
+* Spawn 100,000 threads on a modest system
+
+\vspace{1em}
+
+Parallel generational garbage collector
+
+* All OS threads GC at the same time
+
+\vspace{1em}
+
+Special support for transactions, mutable arrays, finalizers
+
+
+# High-performance concurrent IO
+
+You use threads and simple blocking IO
+
+\vspace{1em}
+
+GHC implements with event-based IO: `select`, `epoll`, etc.
+
+\vspace{1em}
+
+Don't turn your code inside-out!
+
+\vspace{2em}
+
+Good performance with one thread per client:
+
+* 10,000 HTTP / sec with 10,000 active clients\footnote[1]{\scriptsize O'Sullivan and Tibell. ``Scalable I/O Event Handling for GHC.'' \textit{2010 ACM SIGPLAN Haskell Symposium}, pp. 103-108.}
+
+* 17,000 HTTP / sec with 10,000 idle clients
+
+
+# C foreign function interface
+
+Calling C from Haskell is easy:
+
+> foreign import ccall sqrtf :: Float -> Float
+> main = print (sqrtf 2.0)
+
+\vspace{1em}
+
+Full-featured:
+
+* also call Haskell from C
+
+* work with pointers, structs, arrays
+
+* convert Haskell function $\longleftrightarrow$ C function pointer
+
+\vspace{1em}
+
+Making a high-level API is still hard!
+
+
+# Rewrite rules
+
+Libraries can include rules for the optimizer
+
+\vspace{1em}
+
+> {-# RULES "myrule"
+>     forall f g xs.
+>       map f (map g xs) = map (f . g) xs
+>   #-}
+
+
+# Haskell tools
+
+Besides compiling, we need to
+
+* run tests
+
+* benchmark and profile
+
+* generate documentation
+
+* manage library dependencies
+
+* package and distribute our code
+
+
+# QuickCheck library
+
+> sort :: [Int] -> [Int]
+>
+> prop1 xs  =  sort (sort xs) == sort xs
+> prop2 xs  =  xs == sort xs
+
+\begin{verbatim}
+GHCi> quickCheck prop1
++++ OK, passed 100 tests.
+
+GHCi> quickCheck prop2
+*** Failed! Falsifiable (after 6 tests and 7 shrinks):
+[1,0]
+\end{verbatim}
+
+Test against properties or reference implementation
+
+
+# Test coverage: `hpc`
+
+\screenshot{../images/hpc.png}
+
+
+# Benchmarking: Criterion
+
+> import Criterion.Main
+> main = defaultMain [bench "factor 720"
+>                     (whnf factor 720)]
+
+\begin{verbatim}
+estimating cost of a clock call...
+mean is 88.16269 ns (43 iterations)
+found 4 outliers among 43 samples (9.3%)
+
+benchmarking factor 720
+mean: 56.01964 ns, lb 55.67899 ns, ub 56.46515 ns,
+  ci 0.950
+\end{verbatim}
+
+
+# Criterion's density estimation
+
+\begin{center}
+\fbox{\includegraphics[width=95mm]{../images/criterion.pdf}}
+\end{center}
+
+
+# Time profiling
+
+\begin{verbatim}
+                       individual    inherited
+COST CENTRE           %time %alloc   %time %alloc
+MAIN                    0.0    0.0   100.0  100.0
+ CAF:main               0.0    0.0     0.0    0.0
+ CAF:main               0.0    0.0    98.6   97.6
+  main                 44.4   30.7    98.6   97.6
+   keepNew              1.4    3.6     1.4    3.6
+   keepOld              4.2    3.6     4.2    3.6
+   diff                 0.0   10.7    48.6   59.8
+    number              1.4    2.5    13.9   30.7
+     zipLS             12.5   28.2    12.5   28.2
+    solveLCS            0.0    0.0    34.7   18.4
+     longestIncreasing  0.0    0.0     0.0    0.0
+     unique            34.7   18.4    34.7   18.4
+\end{verbatim}
+
+
+# Heap profiling: `hp2ps`
+
+\screenshot{../images/hp2ps.pdf}
+
+
+# Threadscope
+
+\screenshot{../images/threadscope.png}
+
+
+# Documentation: Haddock
+
+\screenshot{../images/haddock.png}
+
+
+# Cabal
+
+Cabal will
+
+* compile your code
+
+* generate a source tarball
+
+* handle a mixture of Haskell and C
+
+* track installed packages and dependencies
+
+* hyperlink documentation between packages
+
+
+# Cabal file
+
+\begin{verbatim}
+name:        patience
+version:     0.1.1
+license:     BSD3
+synopsis:    Patience diff algorithm
+maintainer:  Keegan McAllister
+
+library
+  exposed-modules:  Data.Algorithm.Patience
+  ghc-options:      -Wall
+  build-depends:
+      base >= 3 && < 5
+    , containers >= 0.2
+\end{verbatim}
+
+
+# Using Cabal
+
+\begin{verbatim}
+patience-0.1.1$ cabal install
+Resolving dependencies...
+Building patience-0.1.1...
+[1 of 1] Compiling Data.Algorithm.Patience
+
+Registering patience-0.1.1...
+Running Haddock for patience-0.1.1...
+Installing library in
+  ~/.cabal/lib/patience-0.1.1/ghc-7.0.4
+Updating documentation index
+  ~/.cabal/share/doc/index.html
+\end{verbatim}
+
+
+# Hackage: the Haskell package repository
+
+`http://hackage.haskell.org`
+
+* Over 3,400 packages
+
+* Most have permissive license (BSD or MIT)
+
+* Dozens of uploads per day
+
+* Hyperlinked documentation on the Web
+
+* Cabal can download and install
+
+
+# Hoogle and Hayoo: search Hackage by type
+
+\screenshot{../images/hayoo.png}
+
+
+# Bad parts of the language
+
+Standard Haskell changes slowly; extensions are
+
+* not fully specified
+
+* subject to change and deprecation
+
+\vspace{1em}
+
+Some clear mistakes in the design
+
+* e.g. monomorphism restriction
+
+Records and modules are simplistic
+
+* compare to OCaml
+
+Ad-hoc overloading has annoying limitations
+
+
+# Trouble at runtime
+
+Reasoning about performance is very hard
+
+\vspace{1em}
+
+Magic optimizations are brittle
+
+\vspace{1em}
+
+Lots of time is spent in garbage collection
+
+* other threads blocked
+
+\vspace{0.5em}
+
+Hard to track down run-time errors
+
+
+# Library woes
+
+Which of those 3,400 packages are usable?
+
+\vspace{1em}
+
+Too much choice
+
+* Do your text type, parser lib, IO iterator fit together?
+
+\vspace{0.5em}
+
+Standard library has gaps and avoidable flaws
+
+\vspace{1em}
+
+Best practices are still evolving
+
+
+# Obstacles to learning
+
+Up-front effort for long-term gain
+
+* un-learning old habits
+
+\vspace{0.5em}
+
+Frustrating: easy things are hard
+
+\vspace{1em}
+
+Many articles are confusing or plain wrong
+
+* "a monad is like a burrito"
+
+
+# Where to learn Haskell
+
+Books (free online)
+
+* *Learn You a Haskell For Great Good* by Lipovača
+
+* *Real World Haskell* by O'Sullivan, Stewart, Goerzen
+
+\vspace{1em}
+
+Real-time help from experts
+
+* Freenode IRC `#haskell`: 750 users
+
+* Stack Overflow: 4,000 questions asked
+
+\vspace{1em}
+
+Reddit, blogs, mailing lists, HaskellWiki, academic papers, $\ldots$
+
+
+# Try Haskell!
+
+\screenshot{../images/tryhaskell.png}
+
+
+# `\#haskell`'s lambdabot
+
+\begin{verbatim}
+<kmc> @run fix ((0:) . scanl (+) 1)
+<lambdabot> [0,1,1,2,3,5,8,13,21,34,55,89,144,233,...
+
+<kmc> @pl \x -> h (f x) (g x)
+<lambdabot> liftM2 h f g
+
+<kmc> @djinn ((a, b) -> c) -> a -> b -> c
+<lambdabot> f a b c = a (b, c)
+
+<kmc> @quote few.dozen
+<lambdabot> _pizza_ says: i think Haskell is
+  undoubtedly the world's best programming
+  language for discovering the first few dozen
+  numbers in the Fibonacci sequence over IRC
+\end{verbatim}
+
+
+# Haskell Platform: batteries included
+
+\includegraphics[width=60mm]{../images/platform.pdf}
+
+\vspace{1em}
+
+GHC bundled with blessed tools and libraries
+
+* HTTP, CGI, OpenGL, regex, parsers, unit testing
+
+\vspace{0.5em}
+
+Available for Windows, Mac OS X, Linux, FreeBSD
+
+\vspace{1em}
+
+Packaged in Ubuntu, Debian, Fedora, Arch, Gentoo
+
+\vspace{1em}
+
+`http://haskell.org/platform`
+
+
+# In conclusion...
+
+Haskell lets you build software out of flexible parts which combine in well-defined ways.
+
+\vspace{1em}
+
+Start learning and get
+
+* new ideas right away
+
+* a practical tool later
+
+Use those ideas in other languages, too
+
+
+# Questions?
+
+Slides available at `http://t0rch.org`

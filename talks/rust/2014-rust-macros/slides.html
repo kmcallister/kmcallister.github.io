@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="generator" content="rustdoc">
+    <title>Rust macros in html5ever</title>
+
+    
+    <link rel="stylesheet" href="rust.css">
+<link rel="stylesheet" href="sliderust.css">
+<link rel="stylesheet" href="local.css">
+<script src="sliderust.js"></script>
+
+
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+    <h1 class="title">Rust macros in html5ever</h1>
+    <p>Keegan McAllister</p>
+
+<p>November 6, 2014</p>
+
+<div style="padding-top: 40px; font-size: 60%">
+<p>Navigate with ← and → keys, or <a href="#" id="view-all">view all slides</a>.</p>
+<p>Available at <a href="http://kmcallister.github.io/talks/rust/2014-rust-macros/slides.html"><code>kmcallister.github.io</code></a></p>
+</div>
+
+<h1 id="the-servo-project" class='section-header'><a
+                           href="#the-servo-project">The Servo project</a></h1>
+<p>Servo is an experimental browser engine from Mozilla Research</p>
+
+<p>Developed by a dozen Mozilla employees + hundreds of others</p>
+
+<p>Layout code is all-new and written in Rust</p>
+
+<ul>
+<li>2013-09: passed Acid1 test</li>
+<li>2014-01: parallel layout (!!!)</li>
+<li>2014-05: passed Acid2 test</li>
+<li>2014-08: vertical writing (preliminary)</li>
+<li>2014-10: incremental layout </li>
+</ul>
+
+<h1 id="acid1-cake" class='section-header'><a
+                           href="#acid1-cake">Acid1 cake</a></h1>
+<div class="image"><img src="acid1.jpeg" /></div>
+
+<h1 id="acid2-cake" class='section-header'><a
+                           href="#acid2-cake">Acid2 cake</a></h1>
+<div class="image"><img src="acid2.jpeg" /></div>
+
+<h1 id="bootstrapping" class='section-header'><a
+                           href="#bootstrapping">Bootstrapping</a></h1>
+<p>C libs replaced in Rust:</p>
+
+<ul>
+<li>2013-10: CSS parsing</li>
+<li>2014-07: string interning</li>
+<li>2014-10: HTML parsing</li>
+<li>2014-11: OpenGL windowing</li>
+</ul>
+
+<p>Faster, cleaner, more safe, more correct</p>
+
+<p>Future: JS engine, rasterizer?</p>
+
+<h1 id="html-parsing" class='section-header'><a
+                           href="#html-parsing">HTML parsing</a></h1>
+<p>What is the HTML syntax? Depends who you ask!</p>
+
+<ul>
+<li>W3C spec: <b>8 pages</b></li>
+<li>WHATWG spec: <b>114 pages</b></li>
+</ul>
+
+<p>Which one is relevant for real browsers and content?</p>
+
+<h1 id="turn-down-for-whatwg" class='section-header'><a
+                           href="#turn-down-for-whatwg">TURN DOWN FOR WHATWG</a></h1>
+<div class="image"><img src="sink.png" style="width: 60%" /></div>
+
+<h1 id="parsing-rules" class='section-header'><a
+                           href="#parsing-rules">Parsing rules</a></h1>
+<blockquote>
+<dl class="switch">
+<dt>A start tag whose tag name is "nobr"</dt>
+<dd>
+<p><em>Reconstruct the active formatting elements</em>, if any.</p>
+<p>If the <em>stack of open elements</em> <em>has a <code>nobr</code> element in scope</em>, then this is a <em>parse error</em>; run the <em>adoption agency algorithm</em> for the tag name "nobr", then once again <em>reconstruct the active formatting elements</em>, if any.</p>
+<p><em>Insert an HTML element</em> for the token. <em>Push onto the list of active formatting elements</em> that element.</p>
+</dd>
+</dl>
+</blockquote>
+
+<h1 id="parsing-rules-1" class='section-header'><a
+                           href="#parsing-rules-1">Parsing rules</a></h1>
+<blockquote>
+<p>When the steps below require the UA to <dfn>generate implied end tags</dfn>, then, while the <em>current node</em> is a <code>dd</code> element, a <code>dt</code> element, an <code>li</code> element, …</p>
+<p>When the steps below require the UA to <dfn>generate all implied end tags thoroughly</dfn>, then, while the <em>current node</em> is a <code>caption</code> element, a <code>colgroup</code> element, an <code>dd</code> element, …</p>
+</blockquote>
+
+<h1 id="whyyyyyy" class='section-header'><a
+                           href="#whyyyyyy">whyyyyyy</a></h1>
+<p>The upside: Any crap HTML (even 1996 GeoCities) will parse the same in every modern browser</p>
+
+<div class="image"><img src="under-construction.png" /></div>
+
+<p><code>&lt;kmc&gt; should I be scared when the WHATWG spec says "for historical reasons"? because I feel like that phrase already applies to the entire document</code></p>
+
+<p><code>&lt;Ms2ger&gt; Correct</code></p>
+
+<p><code>&lt;Ms2ger&gt; That just means "for historical reasons we dislike particularly"</code></p>
+
+<h1 id="html5ever" class='section-header'><a
+                           href="#html5ever">html5ever</a></h1>
+<p>html5ever is Servo&#39;s new HTML parser, written mostly by me over the course of about 7 months</p>
+
+<p>We now have 8 contributors and <i>several</i> users!</p>
+
+<p>Fast, safe, generic, native UTF-8</p>
+
+<p>Rust and C APIs available</p>
+
+<h1 id="macros-in-html5ever" class='section-header'><a
+                           href="#macros-in-html5ever">Macros in html5ever</a></h1>
+<p>Factor the problem into:</p>
+
+<ul>
+<li>Small amount of difficult macro code</li>
+<li>Large amount of mindlessly transcribed rules</li>
+</ul>
+
+<p>Bonus: code looks like the spec!</p>
+
+<h1 id="tokenizer-rule" class='section-header'><a
+                           href="#tokenizer-rule">Tokenizer rule</a></h1>
+<blockquote>
+<h5>12.2.4.1 <dfn>Data state</dfn></h5>
+<p>Consume the <em>next input character</em>:</p>
+<dl class="switch"><dt>U+0026 AMPERSAND (&amp;)</dt><dd>Switch to the <em>character reference in data state</em>.</dd><dt>U+003C LESS-THAN SIGN (&lt;)</dt><dd>Switch to the <em>tag open state</em>.</dd><dt>U+0000 NULL</dt><dd><em>Parse error</em>. Emit the <em>current input character</em> as a character
+   token.</dd><dt>EOF</dt><dd>Emit an end-of-file token.</dd><dt>Anything else</dt><dd>Emit the <em>current input character</em> as a character token.</dd></dl>
+</blockquote>
+
+<h1 id="tokenizer-code" class='section-header'><a
+                           href="#tokenizer-code">Tokenizer code</a></h1><pre class='rust '>
+<span class='kw'>match</span> <span class='self'>self</span>.<span class='ident'>state</span> {
+    <span class='ident'>states</span>::<span class='ident'>Data</span> <span class='op'>=&gt;</span> <span class='kw'>loop</span> { <span class='kw'>match</span> <span class='macro'>get_char</span><span class='macro'>!</span>(<span class='self'>self</span>) {
+        <span class='string'>&#39;&amp;&#39;</span>  <span class='op'>=&gt;</span> <span class='macro'>go</span><span class='macro'>!</span>(<span class='self'>self</span>: <span class='ident'>consume_char_ref</span>),
+        <span class='string'>&#39;&lt;&#39;</span>  <span class='op'>=&gt;</span> <span class='macro'>go</span><span class='macro'>!</span>(<span class='self'>self</span>: <span class='ident'>to</span> <span class='ident'>TagOpen</span>),
+        <span class='string'>&#39;\0&#39;</span> <span class='op'>=&gt;</span> <span class='macro'>go</span><span class='macro'>!</span>(<span class='self'>self</span>: <span class='ident'>error</span>; <span class='ident'>emit</span> <span class='string'>&#39;\0&#39;</span>),
+        <span class='ident'>c</span>    <span class='op'>=&gt;</span> <span class='macro'>go</span><span class='macro'>!</span>(<span class='self'>self</span>: <span class='ident'>emit</span> <span class='ident'>c</span>),
+    }},
+</pre>
+
+<p>In Hubbub this is about <b>150 lines of C</b>.</p>
+
+<p>In html5lib it's <b>20 lines of Python</b>.</p>
+
+<h1 id="incremental-parsing" class='section-header'><a
+                           href="#incremental-parsing">Incremental parsing</a></h1><pre class='rust '>
+<span class='comment'>// Feed more input</span>
+<span class='kw'>fn</span> <span class='ident'>feed</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>input</span>: <span class='ident'>String</span>);
+
+<span class='comment'>// Get next character, if available</span>
+<span class='kw'>fn</span> <span class='ident'>get_char</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Option</span><span class='op'>&lt;</span><span class='ident'>char</span><span class='op'>&gt;</span>;
+
+<span class='comment'>// true =&gt; made progress</span>
+<span class='kw'>fn</span> <span class='ident'>step</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='ident'>bool</span>;
+
+<span class='kw'>fn</span> <span class='ident'>run</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>) {
+    <span class='kw'>while</span> <span class='self'>self</span>.<span class='ident'>step</span>() { }
+}
+</pre>
+
+<h1 id="get_char!" class='section-header'><a
+                           href="#get_char!"><code>get_char!</code></a></h1><pre class='rust '>
+<span class='macro'>macro_rules</span><span class='macro'>!</span> <span class='ident'>unwrap_or_return</span> (
+    (<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>opt</span>:<span class='ident'>expr</span>, <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>retval</span>:<span class='ident'>expr</span>) <span class='op'>=&gt;</span> (
+        <span class='kw'>match</span> <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>opt</span> {
+            <span class='prelude-val'>None</span> <span class='op'>=&gt;</span> <span class='kw'>return</span> <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>retval</span>,
+            <span class='prelude-val'>Some</span>(<span class='ident'>x</span>) <span class='op'>=&gt;</span> <span class='ident'>x</span>,
+        }
+    )
+)
+
+<span class='macro'>macro_rules</span><span class='macro'>!</span> <span class='ident'>get_char</span> (
+    (<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>me</span>:<span class='ident'>expr</span>) <span class='op'>=&gt;</span> (
+        <span class='macro'>unwrap_or_return</span><span class='macro'>!</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>me</span>.<span class='ident'>get_char</span>(), <span class='boolval'>false</span>)
+    )
+)
+</pre>
+
+<h1 id="tokenizer-actions" class='section-header'><a
+                           href="#tokenizer-actions">Tokenizer actions</a></h1><pre class='rust '>
+<span class='macro'>macro_rules</span><span class='macro'>!</span> <span class='ident'>shorthand</span> (
+
+    (<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>me</span>:<span class='ident'>expr</span>: <span class='ident'>emit</span> <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>c</span>:<span class='ident'>expr</span>)
+        <span class='op'>=&gt;</span> ( <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>me</span>.<span class='ident'>emit_char</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>c</span>); );
+
+    <span class='comment'>// 22 more of these</span>
+)
+</pre>
+
+<p>Allows for compact sequencing:</p>
+<pre class='rust '>
+<span class='macro'>go</span><span class='macro'>!</span>(<span class='self'>self</span>: <span class='ident'>error</span>; <span class='ident'>create_doctype</span>; <span class='ident'>force_quirks</span>;
+          <span class='ident'>emit_doctype</span>; <span class='ident'>to</span> <span class='ident'>Data</span>)
+</pre>
+
+<p><code>go!</code> is used over 200 times.</p>
+
+<h1 id="sequencing" class='section-header'><a
+                           href="#sequencing">Sequencing</a></h1>
+<p>A pattern like <code>$($cmd:tt)* ; $($rest:tt)*</code> is ambiguous :(</p>
+<pre class='rust '>
+<span class='macro'>macro_rules</span><span class='macro'>!</span> <span class='ident'>go</span> (
+  (<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>me</span>:<span class='ident'>expr</span>: <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>a</span>:<span class='ident'>tt</span>                 ; $(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>rest</span>:<span class='ident'>tt</span>)<span class='op'>*</span> )
+    <span class='op'>=&gt;</span> ({ <span class='macro'>shorthand</span><span class='macro'>!</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>me</span>: <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>a</span>);       <span class='macro'>go</span><span class='macro'>!</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>me</span>: $(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>rest</span>)<span class='op'>*</span>); });
+
+  (<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>me</span>:<span class='ident'>expr</span>: <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>a</span>:<span class='ident'>tt</span> <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>b</span>:<span class='ident'>tt</span>           ; $(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>rest</span>:<span class='ident'>tt</span>)<span class='op'>*</span> )
+    <span class='op'>=&gt;</span> ({ <span class='macro'>shorthand</span><span class='macro'>!</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>me</span>: <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>a</span> <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>b</span>);    <span class='macro'>go</span><span class='macro'>!</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>me</span>: $(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>rest</span>)<span class='op'>*</span>); });
+
+  (<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>me</span>:<span class='ident'>expr</span>: <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>a</span>:<span class='ident'>tt</span> <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>b</span>:<span class='ident'>tt</span> <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>c</span>:<span class='ident'>tt</span>     ; $(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>rest</span>:<span class='ident'>tt</span>)<span class='op'>*</span> )
+    <span class='op'>=&gt;</span> ({ <span class='macro'>shorthand</span><span class='macro'>!</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>me</span>: <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>a</span> <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>b</span> <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>c</span>); <span class='macro'>go</span><span class='macro'>!</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>me</span>: $(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>rest</span>)<span class='op'>*</span>); });
+</pre>
+
+<h1 id="sequencing-(continued)" class='section-header'><a
+                           href="#sequencing-(continued)">Sequencing (continued)</a></h1><pre class='rust '>
+  <span class='comment'>// Can only come at the end</span>
+  (<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>me</span>:<span class='ident'>expr</span>: <span class='ident'>to</span> <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>s</span>:<span class='ident'>ident</span>)
+    <span class='op'>=&gt;</span> ({ <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>me</span>.<span class='ident'>state</span> <span class='op'>=</span> <span class='ident'>states</span>::<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>s</span>; <span class='kw'>return</span> <span class='boolval'>true</span>; });
+
+  <span class='comment'>// Base cases</span>
+  (<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>me</span>:<span class='ident'>expr</span>: $(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>cmd</span>:<span class='ident'>tt</span>)<span class='op'>+</span> )
+    <span class='op'>=&gt;</span> ( <span class='macro'>shorthand</span><span class='macro'>!</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>me</span>: $(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>cmd</span>)<span class='op'>+</span>); );
+
+  (<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>me</span>:<span class='ident'>expr</span>: ) <span class='op'>=&gt;</span> (());
+)
+</pre>
+
+<h1 id="procedural-macros" class='section-header'><a
+                           href="#procedural-macros">Procedural macros</a></h1>
+<p>We&#39;re already stretching the limits of <code>macro_rules!</code> and we haven&#39;t touched
+tree construction…</p>
+
+<p><strong>Procedural macros</strong> run arbitrary Rust code at compile time,<br>
+using <code>rustc</code>&#39;s plugin infrastructure</p>
+
+<p>See <a href="http://doc.rust-lang.org/guide-plugin.html"><code>doc.rust-lang.org/guide-plugin.html</code></a></p>
+
+<h1 id="named-characters" class='section-header'><a
+                           href="#named-characters">Named characters</a></h1>
+<p><code>&amp;lt;</code> parses as &quot;&lt;&quot;</p>
+
+<p><code>&amp;ContourIntegral;</code> parses as &quot;&ContourIntegral;&quot;</p>
+
+<p>WHATWG publishes about 2,000 of these as JSON</p>
+<pre class='rust '>
+<span class='kw'>pub</span> <span class='kw'>static</span> <span class='ident'>NAMED_ENTITIES</span>: <span class='ident'>PhfMap</span><span class='op'>&lt;</span><span class='kw-2'>&amp;</span><span class='lifetime'>&#39;static</span> <span class='ident'>str</span>, [<span class='ident'>u32</span>, ..<span class='number'>2</span>]<span class='op'>&gt;</span>
+    <span class='op'>=</span> <span class='macro'>named_entities</span><span class='macro'>!</span>(<span class='string'>&quot;data/entities.json&quot;</span>);
+</pre>
+
+<h1 id="the-named_entities!-macro" class='section-header'><a
+                           href="#the-named_entities!-macro">The <code>named_entities!</code> macro</a></h1><pre class='rust '>
+<span class='kw'>let</span> <span class='ident'>map</span>: <span class='ident'>HashMap</span><span class='op'>&lt;</span><span class='ident'>String</span>, [<span class='ident'>u32</span>, ..<span class='number'>2</span>]<span class='op'>&gt;</span> <span class='op'>=</span> ...;
+
+<span class='kw'>let</span> <span class='ident'>toks</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span>_<span class='op'>&gt;</span> <span class='op'>=</span> <span class='ident'>map</span>.<span class='ident'>into_iter</span>().<span class='ident'>flat_map</span>(
+    <span class='op'>|</span>(<span class='ident'>k</span>, [<span class='ident'>c0</span>, <span class='ident'>c1</span>])<span class='op'>|</span> {
+        <span class='kw'>let</span> <span class='ident'>k</span> <span class='op'>=</span> <span class='ident'>k</span>.<span class='ident'>as_slice</span>();
+        (<span class='macro'>quote_tokens</span><span class='macro'>!</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='op'>*</span><span class='ident'>cx</span>,
+            <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>k</span> <span class='op'>=&gt;</span> [<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>c0</span>, <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>c1</span>],
+        )).<span class='ident'>into_iter</span>()
+    }
+).<span class='ident'>collect</span>();
+
+<span class='ident'>MacExpr</span>::<span class='ident'>new</span>(<span class='macro'>quote_expr</span><span class='macro'>!</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='op'>*</span><span class='ident'>cx</span>,
+    <span class='macro'>phf_map</span><span class='macro'>!</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>toks</span>)
+))
+</pre>
+
+<h1 id="perfect-hashing" class='section-header'><a
+                           href="#perfect-hashing">Perfect hashing</a></h1>
+<p>We use another procedural macro, from sfackler&#39;s <a href="https://github.com/sfackler/rust-phf"><code>rust-phf</code></a> library,
+to generate a perfect hash table at compile time.</p>
+<pre class='rust '>
+<span class='macro'>phf_map</span><span class='macro'>!</span>(<span class='ident'>k</span> <span class='op'>=&gt;</span> <span class='ident'>v</span>,
+         <span class='ident'>k</span> <span class='op'>=&gt;</span> <span class='ident'>v</span>,
+         ...)
+</pre>
+
+<h1 id="tree-builder-actions" class='section-header'><a
+                           href="#tree-builder-actions">Tree builder actions</a></h1>
+<p>Tree builder has its own rules, less regular in form than the tokenizer.</p>
+
+<p>Instead of <code>match</code> + <code>go!</code>, we&#39;ll need a procedural macro.</p>
+
+<h1 id="match_token!" class='section-header'><a
+                           href="#match_token!"><code>match_token!</code></a></h1><pre class='rust '>
+<span class='kw'>match</span> <span class='ident'>mode</span> {
+    <span class='ident'>InBody</span> <span class='op'>=&gt;</span> <span class='macro'>match_token</span><span class='macro'>!</span>(<span class='ident'>token</span> { 
+        <span class='ident'>tag</span> <span class='kw-2'>@</span> <span class='op'>&lt;</span><span class='op'>/</span><span class='ident'>a</span><span class='op'>&gt;</span> <span class='op'>&lt;</span><span class='op'>/</span><span class='ident'>b</span><span class='op'>&gt;</span> <span class='op'>&lt;</span><span class='op'>/</span><span class='ident'>big</span><span class='op'>&gt;</span> <span class='op'>&lt;</span><span class='op'>/</span><span class='ident'>code</span><span class='op'>&gt;</span> <span class='op'>&lt;</span><span class='op'>/</span><span class='ident'>em</span><span class='op'>&gt;</span> <span class='op'>&lt;</span><span class='op'>/</span><span class='ident'>font</span><span class='op'>&gt;</span>
+              <span class='op'>&lt;</span><span class='op'>/</span><span class='ident'>i</span><span class='op'>&gt;</span> <span class='op'>&lt;</span><span class='op'>/</span><span class='ident'>nobr</span><span class='op'>&gt;</span> <span class='op'>&lt;</span><span class='op'>/</span><span class='ident'>s</span><span class='op'>&gt;</span> <span class='op'>&lt;</span><span class='op'>/</span><span class='ident'>small</span><span class='op'>&gt;</span> <span class='op'>&lt;</span><span class='op'>/</span><span class='ident'>strike</span><span class='op'>&gt;</span>
+              <span class='op'>&lt;</span><span class='op'>/</span><span class='ident'>strong</span><span class='op'>&gt;</span> <span class='op'>&lt;</span><span class='op'>/</span><span class='ident'>tt</span><span class='op'>&gt;</span> <span class='op'>&lt;</span><span class='op'>/</span><span class='ident'>u</span><span class='op'>&gt;</span> <span class='op'>=&gt;</span> {
+            <span class='self'>self</span>.<span class='ident'>adoption_agency</span>(<span class='ident'>tag</span>.<span class='ident'>name</span>);
+            <span class='ident'>Done</span>
+        }
+
+        <span class='ident'>tag</span> <span class='kw-2'>@</span> <span class='op'>&lt;</span><span class='ident'>h1</span><span class='op'>&gt;</span> <span class='op'>&lt;</span><span class='ident'>h2</span><span class='op'>&gt;</span> <span class='op'>&lt;</span><span class='ident'>h3</span><span class='op'>&gt;</span> <span class='op'>&lt;</span><span class='ident'>h4</span><span class='op'>&gt;</span> <span class='op'>&lt;</span><span class='ident'>h5</span><span class='op'>&gt;</span> <span class='op'>&lt;</span><span class='ident'>h6</span><span class='op'>&gt;</span> <span class='op'>=&gt;</span> {
+            <span class='self'>self</span>.<span class='ident'>close_p_element_in_button_scope</span>();
+            <span class='kw'>if</span> <span class='self'>self</span>.<span class='ident'>current_node_in</span>(<span class='ident'>heading_tag</span>) {
+                <span class='comment'>// ...</span>
+</pre>
+
+<h1 id="custom-syntax-trees" class='section-header'><a
+                           href="#custom-syntax-trees">Custom syntax trees</a></h1><pre class='rust '>
+<span class='kw'>struct</span> <span class='ident'>Tag</span> {
+    <span class='ident'>kind</span>: <span class='ident'>TagKind</span>,
+    <span class='ident'>name</span>: <span class='prelude-ty'>Option</span><span class='op'>&lt;</span><span class='ident'>TagName</span><span class='op'>&gt;</span>,  <span class='comment'>// None for wild</span>
+}
+
+<span class='doccomment'>/// Left-hand side of a pattern-match arm.</span>
+<span class='kw'>enum</span> <span class='ident'>LHS</span> {
+    <span class='ident'>Pat</span>(<span class='ident'>P</span><span class='op'>&lt;</span><span class='ident'>ast</span>::<span class='ident'>Pat</span><span class='op'>&gt;</span>),
+    <span class='ident'>Tags</span>(<span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>Spanned</span><span class='op'>&lt;</span><span class='ident'>Tag</span><span class='op'>&gt;&gt;</span>),
+}
+</pre>
+
+<h1 id="source-code-spans" class='section-header'><a
+                           href="#source-code-spans">Source code spans</a></h1>
+<p>In <code>syntax::codemap</code> you will find</p>
+<pre class='rust '>
+<span class='kw'>pub</span> <span class='kw'>struct</span> <span class='ident'>Span</span> {
+    <span class='kw'>pub</span> <span class='ident'>lo</span>: <span class='ident'>BytePos</span>,
+    <span class='kw'>pub</span> <span class='ident'>hi</span>: <span class='ident'>BytePos</span>,
+
+    <span class='doccomment'>/// Macro expansion context</span>
+    <span class='kw'>pub</span> <span class='ident'>expn_info</span>: <span class='prelude-ty'>Option</span><span class='op'>&lt;</span><span class='ident'>P</span><span class='op'>&lt;</span><span class='ident'>ExpnInfo</span><span class='op'>&gt;&gt;</span>
+}
+
+<span class='kw'>pub</span> <span class='kw'>struct</span> <span class='ident'>Spanned</span><span class='op'>&lt;</span><span class='ident'>T</span><span class='op'>&gt;</span> {
+    <span class='kw'>pub</span> <span class='ident'>node</span>: <span class='ident'>T</span>,
+    <span class='kw'>pub</span> <span class='ident'>span</span>: <span class='ident'>Span</span>,
+}
+</pre>
+
+<h1 id="tracking-spans" class='section-header'><a
+                           href="#tracking-spans">Tracking spans</a></h1><pre class='rust '>
+<span class='kw'>use</span> <span class='ident'>syntax</span>::<span class='ident'>codemap</span>::{<span class='ident'>Span</span>, <span class='ident'>Spanned</span>, <span class='ident'>spanned</span>};
+<span class='kw'>use</span> <span class='ident'>syntax</span>::<span class='ident'>parse</span>::<span class='ident'>parser</span>::<span class='ident'>Parser</span>;
+
+<span class='kw'>fn</span> <span class='ident'>parse_spanned_ident</span>(<span class='ident'>parser</span>: <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>Parser</span>)
+    <span class='op'>-&gt;</span> <span class='ident'>Spanned</span><span class='op'>&lt;</span><span class='ident'>Ident</span><span class='op'>&gt;</span>
+{
+    <span class='kw'>let</span> <span class='ident'>lo</span> <span class='op'>=</span> <span class='ident'>parser</span>.<span class='ident'>span</span>.<span class='ident'>lo</span>;
+    <span class='kw'>let</span> <span class='ident'>ident</span> <span class='op'>=</span> <span class='ident'>parser</span>.<span class='ident'>parse_ident</span>();
+    <span class='kw'>let</span> <span class='ident'>hi</span> <span class='op'>=</span> <span class='ident'>parser</span>.<span class='ident'>last_span</span>.<span class='ident'>hi</span>;
+    <span class='ident'>spanned</span>(<span class='ident'>lo</span>, <span class='ident'>hi</span>, <span class='ident'>ident</span>)
+}
+</pre>
+
+<h1 id="throwing-compiler-errors" class='section-header'><a
+                           href="#throwing-compiler-errors">Throwing compiler errors</a></h1><pre class='rust '>
+<span class='macro'>macro_rules</span><span class='macro'>!</span> <span class='ident'>bail</span> (
+    (<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>cx</span>:<span class='ident'>expr</span>, <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>span</span>:<span class='ident'>expr</span>, <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>msg</span>:<span class='ident'>expr</span>) <span class='op'>=&gt;</span> ({
+        <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>cx</span>.<span class='ident'>span_err</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>span</span>, <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>msg</span>);
+        <span class='kw'>return</span> ::<span class='ident'>syntax</span>::<span class='ident'>ext</span>::<span class='ident'>base</span>::<span class='ident'>DummyResult</span>::<span class='ident'>any</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>span</span>);
+    })
+)
+
+<span class='macro'>macro_rules</span><span class='macro'>!</span> <span class='ident'>bail_if</span> (
+    (<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>e</span>:<span class='ident'>expr</span>, <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>cx</span>:<span class='ident'>expr</span>, <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>span</span>:<span class='ident'>expr</span>, <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>msg</span>:<span class='ident'>expr</span>) <span class='op'>=&gt;</span> (
+        <span class='kw'>if</span> <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>e</span> { <span class='macro'>bail</span><span class='macro'>!</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>cx</span>, <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>span</span>, <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>msg</span>) }
+    )
+)
+</pre>
+
+<h1 id="validating-macro-input" class='section-header'><a
+                           href="#validating-macro-input">Validating macro input</a></h1><pre class='rust '>
+<span class='kw'>match</span> (<span class='ident'>lhs</span>.<span class='ident'>node</span>, <span class='ident'>rhs</span>.<span class='ident'>node</span>) {
+    (<span class='ident'>Pat</span>(<span class='ident'>pat</span>), <span class='ident'>Expr</span>(<span class='ident'>expr</span>)) <span class='op'>=&gt;</span> {
+        <span class='macro'>bail_if</span><span class='macro'>!</span>(<span class='op'>!</span><span class='ident'>wildcards</span>.<span class='ident'>is_empty</span>(), <span class='ident'>cx</span>, <span class='ident'>lhs</span>.<span class='ident'>span</span>,
+            <span class='string'>&quot;ordinary patterns may not appear after \
+             wildcard tags&quot;</span>);
+</pre>
+
+<p>Do this to guarantee the semantics of in-order matching</p>
+
+<pre><code>src/tree_builder/rules.rs:100:17: 100:48
+  <span style="color: red">error:</span> ordinary patterns may not appear after wildcard tags
+src/tree_builder/rules.rs:100
+  CharacterTokens(NotSplit, text) => SplitWhitespace(text),
+  <span style="color: red">^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~</span>
+<b><span style="color: red">error:</span> aborting due to previous error</b>
+</code></pre>
+
+<h1 id="my-favorite-rule-in-the-spec" class='section-header'><a
+                           href="#my-favorite-rule-in-the-spec">My favorite rule in the spec</a></h1>
+<blockquote style="margin-top: 240px;">
+<dl class="switch">
+<dt>An end tag whose tag name is "sarcasm"</dt>
+<dd>Take a deep breath, then act as described in the "any other end tag" entry below.</dd>
+</dl>
+</blockquote>
+
+    <script type="text/javascript">
+        window.playgroundUrl = "";
+    </script>
+    
+</body>
+</html>

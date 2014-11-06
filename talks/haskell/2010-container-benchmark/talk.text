@@ -1,0 +1,200 @@
+% Benchmarking Containers Generically in Haskell
+% Keegan McAllister
+% August 23, 2010
+
+# Associative containers
+
+Containers representing `Int → Int`
+
+- Persistent: `Map`, `IntMap`, `Seq`, `Array`, `DiffArray`, `Vector`
+- Mutable: `IOArray`, `MVector`, `judy`
+
+Boxed and unboxed flavors
+
+Want to benchmark ⇒ need common interface
+
+# Interfaces
+
+How to work with many implementations of one interface in a single module?
+
+- Modules aren't first-class
+- OOP-like encapsulation translates several ways
+
+# OOP with classes
+
+>
+> class IsShape a where { draw :: a → IO (), ... }
+>
+> data Shape = ∀ a. (IsShape a) ⇒ Shape a
+>
+> data Square = ...
+> instance IsShape Square where ...
+>
+> data Circle = ...
+> instance IsShape Circle where ...
+
+- interface ↦ `class`
+- class ↦ `data`+`instance`
+- instance ↦ existential value
+- constructor ↦ constructor
+
+# OOP directly
+
+>
+> data Shape = ∀ a. Shape { draw :: a → IO (), ... }
+>
+> square :: Shape
+> square = Shape { draw = \x → ... }
+
+- interface ↦ `data`
+- class, ctor, instance ↦ ordinary value
+- Inheritance, mixins, metaclasses with ordinary functions!
+
+"*...when you use an advanced feature, you need a yet more advanced feature to abstract over it... But all you need to abstract over a function is another function.*" — Luke Palmer
+
+# Immutable containers
+
+>
+> data IContainer k v = ∀ c. IContainer
+>   { icEmpty  :: c
+>   , icLookup :: k → c → Maybe v                                  
+>   , icInsert :: k → v → c → c }                                 
+> 
+> icAssocList :: (Eq k) ⇒ IContainer k v
+> icAssocList = IContainer
+>   { icEmpty  = []
+>   , icLookup = Prelude.lookup
+>   , icInsert = \k v → ((k,v):) }
+> 
+> icMap :: (Ord k) ⇒ IContainer k v
+> icMap = IContainer
+>   { icEmpty  = Map.empty
+>   , icLookup = Map.lookup
+>   , icInsert = Map.insert }
+
+# Data.Sequence
+
+Explicit size, fill:
+
+> icSeq :: Int → v → IContainer Int v
+> icSeq len fill = IContainer
+>   { icEmpty  = Seq.replicate len fill
+>   , icLookup = \k   a → Just (Seq.index a k)
+>   , icInsert = \k v a → Seq.update k v a }
+
+# Proxying array types
+
+>
+> data P2 (a :: * → * → *) = P2
+>
+> icIArray :: ∀ a k v. (Ix k, IArray a v) ⇒
+>   P2 a → (k, k) → v → IContainer k v
+> icIArray _ bnd fill = IContainer
+>   { icEmpty  = listArray bnd (repeat fill) :: (a k v)
+>   , icLookup = \k   a → Just (a ! k)
+>   , icInsert = \k v a → a // [(k,v)] }
+
+Type var `a` not mentioned in return value
+
+`ScopedTypeVariables` used to constrain array type via phantom type argument
+
+# Mutable containers
+
+>
+> data MContainer m k v = ∀ c. MContainer
+>   { mcNew    :: m c
+>   , mcLookup :: k → c → m (Maybe v)
+>   , mcInsert :: k → v → c → m () }
+>
+> mcJudy :: (Judy.JE v) ⇒ MContainer IO Int v
+> mcJudy = MContainer
+>   { mcNew    = Judy.new
+>   , mcLookup = Judy.lookup . fromIntegral
+>   , mcInsert = Judy.insert . fromIntegral }
+
+# Immutable to mutable
+
+>
+> mcUsingIORef :: IContainer k v → MContainer IO k v
+> mcUsingIORef (IContainer{..}) = MContainer
+>   { mcNew    = newIORef icEmpty
+>   , mcLookup = \k   c → icLookup k <$> readIORef c
+>   , mcInsert = \k v c → do
+>       cv  ← readIORef c
+>       cv' ← evaluate $ icInsert k v cv
+>       writeIORef c cv' }
+
+Easy because OO/module aspects are first-class
+
+# Testing
+
+Use Mersenne Twister for speed
+
+> test :: MTGen → MContainer IO Int Int → IO ()
+> test gen (MContainer{..}) = do
+>   c ← mcNew
+>   replicateM_ numInserts (testInsert c)
+>   replicateM_ numLookups (testLookup c)
+>   where
+>     randomN n = (`mod` n) <$> random gen
+>     testInsert c = do
+>       k ← randomN keyRange
+>       v ← randomN valueRange
+>       mcInsert k v c
+>     testLookup c = do
+>       k ← randomN keyRange
+>       v ← mcLookup k c
+>       evaluate v
+
+# Main
+
+>
+> containers :: [(String, MContainer IO Int Int)]
+> containers = map (second mcUsingIORef)
+>   [("assoc list",  icAssocList),
+>    ("Array",       arr $ icIArray (P2 :: P2 Array  )),
+>     ...  ))] ++
+>   [("IOArray",     arr $ mcMArray (P2 :: P2 IOArray)),
+>     ...
+>    ("judy",        mcJudy)] where
+>   arr x = x (0,keyRange-1) 0
+> 
+> main :: IO ()
+> main = do
+>   mt ← newMTGen Nothing
+>   let f (n,c) = Criterion.bench n $ test mt c
+>   Criterion.defaultMain $ map f containers
+
+# Results
+
+Preliminary; not well-controlled
+
+~~~~
+IOUArray     1.202336 ms   5000 inserts,
+IOArray      1.758169 ms   5000 lookups
+IOVector     1.767124 ms   on a key range of
+judy         2.846184 ms   [0, 10000)
+IOUVector    3.676211 ms
+IntMap       5.298567 ms   1.86GHz Core 2 Duo
+Seq          7.700057 ms
+Map          9.922070 ms
+DiffArray   20.39920  ms   See also "The performance of
+DiffUArray  20.90303  ms   Haskell CONTAINERS package",
+UArray      65.22165  ms   Milan Straka
+UVector    180.4937   ms
+assoclist  315.1755   ms
+Array      409.8102   ms
+Vector     462.7419   ms
+function   467.7963   ms
+~~~~
+
+# Questions?
+
+ <div style="text-align: center; font-size: 300%">
+
+>
+
+Slides and code online at
+
+ <span style="font-family: monospace">http://t0rch.org</span>
+ </div>
