@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="generator" content="rustdoc">
+    <title>Getting started contributing to Rust</title>
+
+    
+    <link rel="stylesheet" href="http://doc.rust-lang.org/rust.css">
+<link rel="stylesheet" href="sliderust.css">
+<script src="sliderust.js"></script>
+
+
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+    <h1 class="title">Getting started contributing to Rust</h1>
+    <p>SF Bay Area Rust Meetup</p>
+
+<p>January 17, 2015</p>
+
+<div style="padding-top: 40px; font-size: 60%">
+<p>Navigate with ← and → keys, or <a href="#" id="view-all">view all slides</a>.</p>
+<p>Available at <a href="http://kmcallister.github.io/talks/rust/2015-contributing-to-rust/slides.html"><code>kmcallister.github.io</code></a></p>
+</div>
+
+<h1 id="hello,-world!" class='section-header'><a
+                           href="#hello,-world!">Hello, world!</a></h1><pre class='rust '>
+<span class='kw'>fn</span> <span class='ident'>main</span>() {
+    <span class='macro'>println</span><span class='macro'>!</span>(<span class='string'>&quot;Hello, world!&quot;</span>);
+}
+</pre>
+
+<p>Let&#39;s trace this program&#39;s exciting journey through the compiler.</p>
+
+<p>Based on <code>rustc -Z time-passes</code></p>
+
+<p>Numerous details omitted.</p>
+
+<h1 id="hello-compiler!" class='section-header'><a
+                           href="#hello-compiler!">Hello compiler!</a></h1>
+<p>Execution starts in <code>librustc_driver/lib.rs</code></p>
+
+<p>Overall compilation pipeline in <code>librustc_driver/driver.rs</code></p>
+
+<p>Parse command-line options in <code>librustc/session/config.rs</code></p>
+
+<p>Build a <code>Session</code> with overall compiler state</p>
+
+<h1 id="parsing" class='section-header'><a
+                           href="#parsing">Parsing</a></h1>
+<p>UTF-8 string &rarr; tokens &rarr; abstract syntax tree (AST)</p>
+
+<p>Parser is 6,000+ lines hand-written Rust code in libsyntax</p>
+
+<p>Macro invocs are parsed as e.g. expressions or items, but the body is parsed
+only to a token tree.</p>
+
+<p>Record <code>Span</code>s for AST nodes: byte ranges in the original source</p>
+
+<h1 id="rustc---pretty-normal" class='section-header'><a
+                           href="#rustc---pretty-normal"><code>rustc --pretty normal</code></a></h1><pre class='rust '>
+<span class='kw'>fn</span> <span class='ident'>main</span>() { <span class='macro'>println</span><span class='macro'>!</span>(<span class='string'>&quot;Hello, world!&quot;</span>); }
+</pre>
+
+<h1 id="syntax-expansion" class='section-header'><a
+                           href="#syntax-expansion">Syntax expansion</a></h1>
+<ul>
+<li>Strip items based on <code>cfg(...)</code></li>
+<li>Load compiler plugins and exported macros</li>
+<li>Expand macros / syntax extensions</li>
+<li>Strip based on <code>cfg(...)</code> <em>again</em></li>
+<li>Inject imports for std and <code>prelude::*</code></li>
+</ul>
+
+<h1 id="rustc---pretty-expanded" class='section-header'><a
+                           href="#rustc---pretty-expanded"><code>rustc --pretty expanded</code></a></h1><pre class='rust '>
+<span class='attribute'>#<span class='op'>!</span>[<span class='ident'>no_std</span>]</span>
+<span class='attribute'>#[<span class='ident'>macro_use</span>]</span>
+<span class='kw'>extern</span> <span class='kw'>crate</span> <span class='string'>&quot;std&quot;</span> <span class='kw'>as</span> <span class='ident'>std</span>;
+<span class='attribute'>#[<span class='ident'>prelude_import</span>]</span>
+<span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>prelude</span>::<span class='ident'>v1</span>::<span class='op'>*</span>;
+<span class='kw'>fn</span> <span class='ident'>main</span>() {
+    ::<span class='ident'>std</span>::<span class='ident'>io</span>::<span class='ident'>stdio</span>::<span class='ident'>println_args</span>(
+        ::<span class='ident'>std</span>::<span class='ident'>fmt</span>::<span class='ident'>Arguments</span>::<span class='ident'>new</span>({
+            <span class='attribute'>#[<span class='ident'>inline</span>]</span>
+            <span class='attribute'>#[<span class='ident'>allow</span>(<span class='ident'>dead_code</span>)]</span>
+            <span class='kw'>static</span> <span class='ident'>__STATIC_FMTSTR</span>: <span class='kw-2'>&amp;</span><span class='lifetime'>&#39;static</span> [<span class='kw-2'>&amp;</span><span class='lifetime'>&#39;static</span> <span class='ident'>str</span>]
+                   <span class='op'>=</span> <span class='kw-2'>&amp;</span>[<span class='string'>&quot;Hello, world!&quot;</span>];
+            <span class='ident'>__STATIC_FMTSTR</span>
+        }, <span class='kw-2'>&amp;</span><span class='kw'>match</span> () { () <span class='op'>=&gt;</span> [], }));
+}
+</pre>
+
+<h1 id="what?-ast-is-evolving!" class='section-header'><a
+                           href="#what?-ast-is-evolving!">What? AST is evolving!</a></h1>
+<ul>
+<li>Freeze the shape of the tree</li>
+<li>Assign each node a unique <code>NodeId</code></li>
+<li>Build an index by <code>NodeId</code> of AST nodes and their parents</li>
+</ul>
+
+<p>See <code>libsyntax/ast_map</code></p>
+
+<p>Further analysis (types etc.) mostly creates side tables indexed by <code>NodeId</code>.</p>
+
+<h1 id="name-resolution" class='section-header'><a
+                           href="#name-resolution">Name resolution</a></h1>
+<ul>
+<li>Load definitions from external libs</li>
+<li>Find the (local or external) def&#39;n for each local name</li>
+<li>Look for special stuff: lang items, plugin registrar, <code>main</code></li>
+</ul>
+
+<p><code>librustc_resolve</code></p>
+
+<h1 id="type-checking" class='section-header'><a
+                           href="#type-checking">Type checking</a></h1>
+<ul>
+<li>Variance inference</li>
+<li>Coherence checking</li>
+<li>Type inference &amp; checking</li>
+</ul>
+
+<p>See <code>librustc_typeck</code></p>
+
+<h1 id="rustc---pretty-typed" class='section-header'><a
+                           href="#rustc---pretty-typed"><code>rustc --pretty typed</code></a></h1><pre class='rust '>
+<span class='attribute'>#<span class='op'>!</span>[<span class='ident'>no_std</span>]</span> <span class='attribute'>#[<span class='ident'>macro_use</span>]</span> <span class='kw'>extern</span> <span class='kw'>crate</span> <span class='string'>&quot;std&quot;</span> <span class='kw'>as</span> <span class='ident'>std</span>;
+<span class='attribute'>#[<span class='ident'>prelude_import</span>]</span> <span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>prelude</span>::<span class='ident'>v1</span>::<span class='op'>*</span>;
+<span class='kw'>fn</span> <span class='ident'>main</span>() {(
+  (::<span class='ident'>std</span>::<span class='ident'>io</span>::<span class='ident'>stdio</span>::<span class='ident'>println_args</span> <span class='kw'>as</span> <span class='kw'>fn</span>(<span class='ident'>core</span>::<span class='ident'>fmt</span>::<span class='ident'>Arguments</span><span class='op'>&lt;</span><span class='lifetime'>&#39;_</span><span class='op'>&gt;</span>))(
+    ((::<span class='ident'>std</span>::<span class='ident'>fmt</span>::<span class='ident'>Arguments</span>::<span class='ident'>new</span> <span class='kw'>as</span> <span class='kw'>fn</span>(<span class='kw-2'>&amp;</span>[<span class='kw-2'>&amp;</span><span class='ident'>str</span>], <span class='kw-2'>&amp;</span>[<span class='ident'>core</span>::<span class='ident'>fmt</span>::<span class='ident'>Argument</span><span class='op'>&lt;</span><span class='lifetime'>&#39;_</span><span class='op'>&gt;</span>]) <span class='op'>-&gt;</span> <span class='ident'>core</span>::<span class='ident'>fmt</span>::<span class='ident'>Arguments</span><span class='op'>&lt;</span><span class='lifetime'>&#39;_</span><span class='op'>&gt;</span>)(
+      ({ <span class='attribute'>#[<span class='ident'>inline</span>]</span> <span class='attribute'>#[<span class='ident'>allow</span>(<span class='ident'>dead_code</span>)]</span>
+        <span class='kw'>static</span> <span class='ident'>__STATIC_FMTSTR</span>: <span class='kw-2'>&amp;</span><span class='lifetime'>&#39;static</span> [<span class='kw-2'>&amp;</span><span class='lifetime'>&#39;static</span> <span class='ident'>str</span>]
+          <span class='op'>=</span> <span class='kw-2'>&amp;</span>([(<span class='string'>&quot;Hello, world!&quot;</span> <span class='kw'>as</span> <span class='kw-2'>&amp;</span><span class='lifetime'>&#39;static</span> <span class='ident'>str</span>)] <span class='kw'>as</span> [<span class='kw-2'>&amp;</span><span class='lifetime'>&#39;static</span> <span class='ident'>str</span>; <span class='number'>1</span>])
+            <span class='kw'>as</span> <span class='kw-2'>&amp;</span><span class='lifetime'>&#39;static</span> [<span class='kw-2'>&amp;</span><span class='lifetime'>&#39;static</span> <span class='ident'>str</span>; <span class='number'>1</span>];
+        (<span class='ident'>__STATIC_FMTSTR</span> <span class='kw'>as</span> <span class='kw-2'>&amp;</span><span class='lifetime'>&#39;static</span> [<span class='kw-2'>&amp;</span><span class='lifetime'>&#39;static</span> <span class='ident'>str</span>])
+      } <span class='kw'>as</span> <span class='kw-2'>&amp;</span>[<span class='kw-2'>&amp;</span><span class='ident'>str</span>]), (
+        <span class='kw-2'>&amp;</span>(<span class='kw'>match</span> (() <span class='kw'>as</span> ()) {
+          () <span class='op'>=&gt;</span> ([] <span class='kw'>as</span> [<span class='ident'>core</span>::<span class='ident'>fmt</span>::<span class='ident'>Argument</span><span class='op'>&lt;</span><span class='lifetime'>&#39;_</span><span class='op'>&gt;</span>; <span class='number'>0</span>]),
+        } <span class='kw'>as</span> [<span class='ident'>core</span>::<span class='ident'>fmt</span>::<span class='ident'>Argument</span><span class='op'>&lt;</span><span class='lifetime'>&#39;_</span><span class='op'>&gt;</span>; <span class='number'>0</span>]) <span class='kw'>as</span> <span class='kw-2'>&amp;</span>[<span class='ident'>core</span>::<span class='ident'>fmt</span>::<span class='ident'>Argument</span><span class='op'>&lt;</span><span class='lifetime'>&#39;_</span><span class='op'>&gt;</span>; <span class='number'>0</span>])
+    ) <span class='kw'>as</span> <span class='ident'>core</span>::<span class='ident'>fmt</span>::<span class='ident'>Arguments</span><span class='op'>&lt;</span><span class='lifetime'>&#39;_</span><span class='op'>&gt;</span>)
+  ) <span class='kw'>as</span> ()
+); }
+</pre>
+
+<h1 id="borrow-checking" class='section-header'><a
+                           href="#borrow-checking">Borrow checking</a></h1>
+<p>See <code>librustc_borrowck/borrowck/doc.rs</code> for an overview.</p>
+
+<p>(Some other components also have <code>doc.rs</code>!)</p>
+
+<h1 id="misc-checking" class='section-header'><a
+                           href="#misc-checking">Misc checking</a></h1>
+<p>check static items, const marking, const checking, privacy checking, intrinsic
+checking, effect checking, match checking, liveness checking, rvalue checking,
+reachability checking, death checking</p>
+
+<h1 id="lint-checking" class='section-header'><a
+                           href="#lint-checking">Lint checking</a></h1>
+<p>Lint system defined in <code>librustc/lint</code></p>
+
+<ul>
+<li>Interface in <code>mod.rs</code></li>
+<li>Infrastructure and traversal in <code>context.rs</code></li>
+<li>Built-in lints <em>mostly</em> in <code>builtin.rs</code></li>
+<li>Plugins use the same interface</li>
+</ul>
+
+<p>Some &quot;hardwired&quot; lints are recorded earlier in the pipeline and emitted here</p>
+
+<p>Some extra special lints run after this point</p>
+
+<p>Not all <code>warning</code> messages are lints!</p>
+
+<h1 id="translating-to-llvm" class='section-header'><a
+                           href="#translating-to-llvm">Translating to LLVM</a></h1>
+<p>Everything up to this point is a small fraction of compile time.</p>
+
+<p>Next big step: translate to LLVM code</p>
+
+<p>Happens directly from AST, with heavy use of the side tables computed earlier.</p>
+
+<p><code>librustc_trans/trans</code></p>
+
+<h1 id="the-llvm-project" class='section-header'><a
+                           href="#the-llvm-project">The LLVM project</a></h1>
+<p>A language-independent optimizing compiler backend</p>
+
+<p>A million lines of code developed over 12+ years</p>
+
+<p>Other users: clang, Swift, Rubinius, GHC, Webkit, MesaGL</p>
+
+<p>LLVM is roughly the same language on every platform</p>
+
+<p>Individual programs are <em>not</em> portable due to struct layouts, etc.</p>
+
+<h1 id="the-llvm-language" class='section-header'><a
+                           href="#the-llvm-language">The LLVM language</a></h1>
+<p>Sort of a hybrid of C and assembly, but with an infinite number of &quot;registers&quot;</p>
+
+<p>These local vars are immutable: static single assignment (SSA)</p>
+
+<p>When in doubt: Emit code similar to clang&#39;s</p>
+
+<h1 id="rustc---emit-llvm-ir" class='section-header'><a
+                           href="#rustc---emit-llvm-ir"><code>rustc --emit llvm-ir</code></a></h1>
+<pre><code class="language-text">define internal void @_ZN4main20hd39b92e2a88a8c7deaaE()
+    unnamed_addr #0 {
+entry-block:
+  %addr_of = alloca [0 x %&quot;struct.core::fmt::Argument[#2]&quot;], align 8
+  %0 = alloca %&quot;struct.core::fmt::Arguments[#2]&quot;, align 8
+  %1 = bitcast %&quot;struct.core::fmt::Arguments[#2]&quot;* %0 to i8*
+  call void @llvm.lifetime.start(i64 48, i8* %1)
+  %2 = bitcast [0 x %&quot;struct.core::fmt::Argument[#2]&quot;]* %addr_of to i8*
+  call void @llvm.lifetime.start(i64 0, i8* %2)
+  %3 = getelementptr inbounds [0 x %&quot;struct.core::fmt::Argument[#2]&quot;]* %addr_of, i64 0, i64 0
+  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %1, i8* bitcast ({ %str_slice*, i64 }* @_ZN4main15__STATIC_FMTSTR20h96ab25eba9ca53ccqaaE to i8*), i64 16, i32 8, i1 false) #3, !alias.scope !0, !noalias !4
+</code></pre>
+
+<h1 id="llvm-optimization" class='section-header'><a
+                           href="#llvm-optimization">LLVM optimization</a></h1>
+<p>Lots of time spent here!</p>
+
+<p>We rely on LLVM&#39;s fantastic optimizations to tear apart Rust&#39;s abstractions, in particular:</p>
+
+<ul>
+<li>Scalar replacement of aggregates (SROA): analyze compound data structures as collections of local variables</li>
+<li>Inlining to enable further optimizations</li>
+</ul>
+
+<p>Very powerful, e.g. turning iterator chains into flat loops</p>
+
+<h1 id="llvm-&rarr;-native-code" class='section-header'><a
+                           href="#llvm-&rarr;-native-code">LLVM &rarr; native code</a></h1>
+<p>Also fairly time-consuming</p>
+
+<ul>
+<li>Register allocation</li>
+<li>Instruction selection</li>
+<li>Instruction scheduling</li>
+</ul>
+
+<h1 id="rustc---emit-asm" class='section-header'><a
+                           href="#rustc---emit-asm"><code>rustc --emit asm</code></a></h1>
+<pre><code class="language-text">_ZN4main20hd39b92e2a88a8c7deaaE:
+    .cfi_startproc
+    cmpq    %fs:112, %rsp
+    ja  .LBB0_2
+    movabsq $56, %r10
+    movabsq $0, %r11
+    callq   __morestack
+    retq
+.LBB0_2:
+    subq    $56, %rsp
+.Ltmp0:
+    .cfi_def_cfa_offset 64
+    movups  _ZN4main15__STATIC_FMTSTR20h96ab25eba9ca53ccqaaE(%rip), %xmm0
+    movaps  %xmm0, (%rsp)
+    movq    $0, 16(%rsp)
+    leaq    48(%rsp), %rax
+    movq    %rax, 32(%rsp)
+    movq    $0, 40(%rsp)
+    leaq    (%rsp), %rdi
+    callq   _ZN2io5stdio12println_args20h0f21e194a55552ebNTgE@PLT
+    addq    $56, %rsp
+    retq
+</code></pre>
+
+<h1 id="assembly-and-linking" class='section-header'><a
+                           href="#assembly-and-linking">Assembly and linking</a></h1>
+<p>Use either the platform assembler or LLVM&#39;s built-in one</p>
+
+<p>Force platform assembler with <code>rustc -C no-integrated-as</code></p>
+
+<p>Use the platform linker</p>
+
+<p>Optional link-time optimization by LLVM (<code>-C lto</code>)</p>
+
+<h1 id="objdump--d-hello" class='section-header'><a
+                           href="#objdump--d-hello"><code>objdump -d hello</code></a></h1>
+<pre><code class="language-text">56e0 &lt;_ZN4main20hd39b92e2a88a8c7deaaE&gt;:
+ 56e0:  64 48 3b 24 25 70 00  cmp    %fs:0x70,%rsp
+ 56e7:  00 00 
+ 56e9:  77 1a                 ja     5705 &lt;_ZN4main20hd39b92e2a88a8c7deaaE+0x25&gt;
+ 56eb:  49 ba 38 00 00 00 00  movabs $0x38,%r10
+ 56f2:  00 00 00 
+ 56f5:  49 bb 00 00 00 00 00  movabs $0x0,%r11
+ 56fc:  00 00 00 
+ 56ff:  e8 54 00 00 00        callq  5758 &lt;__morestack&gt;
+ 5704:  c3                    retq   
+ 5705:  48 83 ec 38           sub    $0x38,%rsp
+ 5709:  0f 10 05 80 61 25 00  movups 0x256180(%rip),%xmm0
+  # 25b890 &lt;_ZN4main15__STATIC_FMTSTR20h96ab25eba9ca53ccqaaE&gt;
+ 5710:  0f 29 04 24           movaps %xmm0,(%rsp)
+ 5714:  48 c7 44 24 10 00 00  movq   $0x0,0x10(%rsp)
+ 571b:  00 00 
+ 571d:  48 8d 44 24 30        lea    0x30(%rsp),%rax
+ 5722:  48 89 44 24 20        mov    %rax,0x20(%rsp)
+ 5727:  48 c7 44 24 28 00 00  movq   $0x0,0x28(%rsp)
+ 572e:  00 00 
+ 5730:  48 8d 3c 24           lea    (%rsp),%rdi
+ 5734:  e8 27 47 00 00        callq  9e60 &lt;_ZN2io5stdio12println_args20h0f21e194a55552ebNTgE&gt;
+ 5739:  48 83 c4 38           add    $0x38,%rsp
+ 573d:  c3                    retq   
+</code></pre>
+
+<h1 id="hello,-world!-1" class='section-header'><a
+                           href="#hello,-world!-1">Hello, world!</a></h1>
+<pre><code class="language-text">$ ./hello 
+Hello, world!
+</code></pre>
+
+<h1 id="the-rust-test-suite" class='section-header'><a
+                           href="#the-rust-test-suite">The Rust test suite</a></h1>
+<p>Move fast and <em>don&#39;t</em> break things</p>
+
+<p>(At least, not by accident...)</p>
+
+<p>Test effort pays off immensely with years of rapid change</p>
+
+<h1 id="compiler-tests" class='section-header'><a
+                           href="#compiler-tests">Compiler tests</a></h1>
+<p>Found under <code>src/test</code>:</p>
+
+<ul>
+<li>compile fail, run fail, run pass</li>
+<li>pretty print and re-parse</li>
+<li>benchmarks</li>
+<li>check debug info in GDB or LLDB</li>
+<li>code size comparison w/ C++</li>
+<li>custom Makefile-based test</li>
+</ul>
+
+<p>Mostly implemented by <code>src/compiletest</code></p>
+
+<p><code>src/test/auxiliary</code> has extra crates for multi-crate tests</p>
+
+<h1 id="library-tests" class='section-header'><a
+                           href="#library-tests">Library tests</a></h1>
+<p>Good old <code>#[test]</code> and <code>assert!</code></p>
+
+<p>Same for compiler&#39;s own unit tests</p>
+
+<p>libcore has an external libcoretest (see commit <code>1ed646e</code>)</p>
+
+<p><code>src/libsyntax/test.rs</code> generates the test harness and links libtest</p>
+
+<h1 id="documentation-tests" class='section-header'><a
+                           href="#documentation-tests">Documentation tests</a></h1>
+<p>We test code blocks in documentation!</p>
+
+<p>Skip with <code>&#96;&#96;&#96;ignore</code>, compile-only with
+<code>&#96;&#96;&#96;no_run</code></p>
+
+<p>Lines starting with <code>#</code> are compiled but not shown</p>
+
+<p>Harness detects whether to add <code>fn main() {</code></p>
+
+<p>Hence this idiom:</p>
+
+<pre><code class="language-text"># fn main() { }
+</code></pre>
+
+<h1 id="the-rust-build-system" class='section-header'><a
+                           href="#the-rust-build-system">The Rust build system</a></h1>
+<p>4,000+ lines of Makefiles</p>
+
+<p>Downloads stage0 &quot;snapshot&quot;</p>
+
+<p>Uses it to build stage1 rustc + libs, uses those to build stage2</p>
+
+<p>Also builds own copy of LLVM, with a few local patches</p>
+
+<h1 id="build-recipes" class='section-header'><a
+                           href="#build-recipes">Build recipes</a></h1>
+<p>Run <code>make tips</code> to learn loads of build system tricks</p>
+
+<pre><code class="language-text">make VERBOSE=1
+make docs
+make check-stage1-rpass TESTNAME=my-shiny-new-test
+make check-stage1-std NO_REBUILD=1
+</code></pre>
+
+<p><code>make -j</code> will do a parallel build, to the extent possible</p>
+
+<p>Tests within a suite automatically run in parallel</p>
+
+<h1 id="contributing" class='section-header'><a
+                           href="#contributing">Contributing</a></h1>
+<p>Guidelines in-repo as <a href="https://github.com/rust-lang/rust/blob/master/CONTRIBUTING.md"><code>CONTRIBUTING.md</code></a></p>
+
+<p>Rebase against <code>master</code>, submit a pull request to <code>rust-lang/rust</code></p>
+
+<p><a href="https://github.com/rust-lang/rfcs/#when-you-need-to-follow-this-process">&quot;Substantial&quot;
+changes</a>
+go through the <a href="https://github.com/rust-lang/rfcs">RFC process</a></p>
+
+<p>Always include tests!</p>
+
+<p>Style: 100 char lines, 4-space indent</p>
+
+<p>Be consistent with existing code, but modernize when you can</p>
+
+<h1 id="resources" class='section-header'><a
+                           href="#resources">Resources</a></h1>
+<p><a href="https://github.com/rust-lang/rust/wiki/Notes">Notes for developers</a> at
+<code>github.com/rust-lang/rust/wiki/Notes</code></p>
+
+<p>Please review the <a href="https://github.com/rust-lang/rust/wiki/Note-development-policy#conduct">code of conduct and moderation policy</a></p>
+
+<p><code>#rust-internals</code> on <code>irc.mozilla.org</code></p>
+
+<h1 id="finding-things-to-work-on" class='section-header'><a
+                           href="#finding-things-to-work-on">Finding things to work on</a></h1>
+<p>Rust&#39;s <a href="https://github.com/rust-lang/rust/issues">GitHub issues</a> have tags</p>
+
+<p>E-easy means a good beginner bug. Don&#39;t feel bad if it turns out to be hard, though!</p>
+
+<p>A-docs, A-rustdoc have lots of work ready to go</p>
+
+<p>Following up on old or unlabeled bugs is also very useful</p>
+
+<h1 id="resources-for-this-event" class='section-header'><a
+                           href="#resources-for-this-event">Resources for this event</a></h1>
+<p><code>#rust-workshop</code> on <code>irc.mozilla.org</code></p>
+
+<p>Etherpad at <a href="http://is.gd/ruXbt1"><code>http://is.gd/ruXbt1</code></a></p>
+
+<p>Add what you&#39;re working on</p>
+
+<p>Teamwork is encouraged!</p>
+
+    <script type="text/javascript">
+        window.playgroundUrl = "";
+    </script>
+    
+</body>
+</html>
