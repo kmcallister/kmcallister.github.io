@@ -399,6 +399,10 @@ E-easy means a good beginner bug. Don't feel bad if it turns out to be hard, tho
 
 A-docs, A-rustdoc have lots of work ready to go
 
+A-diagnostics: compiler errors always need work
+
+Add stuff to `rustc --explain`
+
 Following up on old or unlabeled bugs is also very useful
 
 # Resources for this event
