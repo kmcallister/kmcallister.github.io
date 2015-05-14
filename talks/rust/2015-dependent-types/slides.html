@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <title>A taste of dependent types</title>
+
+    
+    <link rel="stylesheet" href="rust.css">
+<link rel="stylesheet" href="sliderust.css">
+<link rel="stylesheet" href="local.css">
+<script src="sliderust.js"></script>
+
+
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+    <h1 class="title">A taste of dependent types</h1>
+    <p>Keegan McAllister</p>
+
+<p>May 15, 2015</p>
+
+<div style="padding-top: 40px; font-size: 60%">
+<p>Navigate with ← and → keys, or <a href="#" id="view-all">view all slides</a>.</p>
+<p>Available at <a href="http://kmcallister.github.io/talks/rust/2015-dependent-types/slides.html"><code>kmcallister.github.io</code></a></p>
+</div>
+
+<h1 id="dependent-types" class='section-header'><a
+                           href="#dependent-types">Dependent types</a></h1>
+<p>Types are first-class values</p>
+
+<p>Argument type can <em>depend on</em> value of prior argument</p>
+<pre id='rust-example-rendered' class='rust '>
+<span class='kw'>fn</span> <span class='ident'>foo</span>(<span class='ident'>T</span>: <span class='kw'>type</span>, <span class='ident'>n</span>: <span class='ident'>usize</span>, <span class='ident'>v</span>: <span class='kw-2'>&amp;</span><span class='ident'>Vec</span>(<span class='ident'>T</span>, <span class='ident'>n</span>)) {
+    ...
+}
+</pre>
+
+<p>Dependent types for Rust?</p>
+
+<ul>
+<li><strong>Simplify</strong> the compile-time language</li>
+<li><strong>Prove correctness</strong> of programs and APIs</li>
+<li><strong>Eliminate overhead</strong> of run-time checks</li>
+<li>Clean up the syntax — no more <code>f::&lt;T&gt;(x)</code></li>
+</ul>
+
+<h1 id="refinement-types" class='section-header'><a
+                           href="#refinement-types">Refinement types</a></h1>
+<p>Known in industry as <em>design by contract</em>.</p>
+
+<p>Fits perfectly in Rust syntax!</p>
+<pre id='rust-example-rendered' class='rust '>
+<span class='kw'>fn</span> <span class='ident'>index</span>(<span class='ident'>T</span>: <span class='kw'>type</span>, <span class='ident'>x</span>: <span class='kw-2'>&amp;</span>[<span class='ident'>T</span>], <span class='ident'>i</span>: <span class='ident'>usize</span>) <span class='op'>-&gt;</span> <span class='kw-2'>&amp;</span><span class='ident'>T</span>
+    <span class='kw'>where</span> <span class='ident'>i</span> <span class='op'>&lt;</span> <span class='ident'>x</span>.<span class='ident'>len</span>()
+{
+    ...
+}
+</pre>
+
+<h1 id="data-invariants" class='section-header'><a
+                           href="#data-invariants">Data invariants</a></h1>
+<p>This binary tree is always in search order:</p>
+<pre id='rust-example-rendered' class='rust '>
+<span class='kw'>fn</span> <span class='ident'>range</span>(<span class='ident'>lo</span>: <span class='ident'>isize</span>, <span class='ident'>hi</span>: <span class='ident'>isize</span>) <span class='op'>-&gt;</span> <span class='kw'>type</span> {
+    <span class='kw'>those</span> <span class='ident'>x</span>: <span class='ident'>isize</span> <span class='kw'>where</span> <span class='ident'>lo</span> <span class='op'>&lt;=</span> <span class='ident'>x</span> <span class='op'>&amp;&amp;</span> <span class='ident'>x</span> <span class='op'>&lt;</span> <span class='ident'>hi</span>
+}
+
+<span class='kw'>enum</span> <span class='ident'>Tree</span>(<span class='ident'>lo</span>: <span class='ident'>isize</span>, <span class='ident'>hi</span>: <span class='ident'>isize</span>) {
+    <span class='ident'>Empty</span>,
+    <span class='ident'>Node</span> {
+        <span class='ident'>val</span>: <span class='ident'>range</span>(<span class='ident'>lo</span>, <span class='ident'>hi</span>),
+        <span class='ident'>left</span>: <span class='ident'>Tree</span>(<span class='ident'>lo</span>, <span class='ident'>val</span>),
+        <span class='ident'>right</span>: <span class='ident'>Tree</span>(<span class='ident'>val</span>, <span class='ident'>hi</span>),
+    },
+}
+</pre>
+
+<h1 id="implementing-refinements" class='section-header'><a
+                           href="#implementing-refinements">Implementing refinements</a></h1>
+<p>Subtyping based on logical implication is undecidable.</p>
+
+<p>Compiler asks an &ldquo;off-the-shelf&rdquo; theorem prover.</p>
+
+<p>Answer is &ldquo;yes&rdquo;, &ldquo;no&rdquo;, or &ldquo;maybe&rdquo; (&rArr; check at runtime).</p>
+
+<p>&nbsp;</p>
+
+<p>Refinement extensions exist for <a href="http://goto.ucsd.edu/csolve/">C</a>, <a href="https://www.cs.cmu.edu/%7Efp/papers/pldi91.pdf">ML</a>, <a href="http://goto.ucsd.edu/%7Erjhala/liquid/haskell/blog/about/">Haskell</a>, <a href="http://research.microsoft.com/en-us/projects/specsharp/">C#</a>, <a href="http://research.microsoft.com/en-us/projects/f7/">F#</a></p>
+
+<p><a href="http://www.mitls.org/wsgi/home">miTLS</a> (<a href="https://www.mitls.org:2443/wsgi/home">live demo</a>) is a verified SSL/TLS stack.</p>
+
+<p>They found a <a href="https://www.secure-resumption.com/">protocol bug</a> too!</p>
+
+<h1 id="(co-)inductive-constructions" class='section-header'><a
+                           href="#(co-)inductive-constructions">(Co-)inductive constructions</a></h1>
+<p>A different approach to dependent types.</p>
+
+<p><em>Calculus of constructions</em> + <a href="http://downloads.haskell.org/%7Eghc/latest/docs/html/users_guide/data-type-extensions.html#gadt"><em>generalized algebraic data types</em></a></p>
+
+<p>&nbsp;</p>
+
+<p>Programs <em>are proofs</em> (Curry-Howard correspondence)</p>
+
+<p>Programs are correct <em>by construction</em></p>
+
+<h1 id="defining-an-inductive-type" class='section-header'><a
+                           href="#defining-an-inductive-type">Defining an inductive type</a></h1>
+<p>Each <code>enum</code> constructor specifies its type.</p>
+<pre id='rust-example-rendered' class='rust '>
+<span class='kw'>enum</span> <span class='ident'>Nat</span> {
+    <span class='ident'>Zero</span>: <span class='ident'>Nat</span>,
+    <span class='ident'>Succ</span>(<span class='ident'>Nat</span>): <span class='ident'>Nat</span>,
+}
+
+<span class='kw'>enum</span> <span class='ident'>Vec</span>(<span class='ident'>T</span>: <span class='kw'>type</span>, <span class='ident'>len</span>: <span class='ident'>Nat</span>) {
+    <span class='ident'>Nil</span>:
+        <span class='ident'>Vec</span>(<span class='ident'>T</span>, <span class='ident'>Nat</span>::<span class='ident'>Zero</span>),
+
+    <span class='ident'>Cons</span>(<span class='ident'>T</span>, <span class='ident'>Vec</span>(<span class='ident'>T</span>, <span class='ident'>len</span>)):
+        <span class='ident'>Vec</span>(<span class='ident'>T</span>, <span class='ident'>Nat</span>::<span class='ident'>Succ</span>(<span class='ident'>len</span>)),
+}
+</pre>
+
+<h1 id="inductive-data-can-refine,-too" class='section-header'><a
+                           href="#inductive-data-can-refine,-too">Inductive data can refine, too</a></h1><pre id='rust-example-rendered' class='rust '>
+<span class='kw'>enum</span> <span class='ident'>Equal</span>(<span class='ident'>T</span>: <span class='kw'>type</span>, <span class='ident'>a</span>: <span class='ident'>T</span>, <span class='ident'>b</span>: <span class='ident'>T</span>) {
+    <span class='ident'>Refl</span>: <span class='ident'>Equal</span>(<span class='ident'>T</span>, <span class='ident'>a</span>, <span class='ident'>a</span>),
+}
+
+<span class='kw'>struct</span> <span class='ident'>Refine</span>(<span class='ident'>T</span>: <span class='kw'>type</span>, <span class='ident'>p</span>: <span class='ident'>T</span> <span class='op'>-&gt;</span> <span class='ident'>bool</span>) {
+    <span class='ident'>value</span>: <span class='ident'>T</span>,
+    <span class='ident'>proof</span>: <span class='ident'>Equal</span>(<span class='ident'>bool</span>, <span class='boolval'>true</span>, <span class='ident'>p</span>(<span class='ident'>value</span>)),
+}
+
+<span class='kw'>fn</span> <span class='ident'>range</span>(<span class='ident'>lo</span>: <span class='ident'>isize</span>, <span class='ident'>hi</span>: <span class='ident'>isize</span>) <span class='op'>-&gt;</span> <span class='kw'>type</span> {
+    <span class='ident'>Refine</span>(<span class='ident'>isize</span>, <span class='op'>|</span><span class='ident'>x</span><span class='op'>|</span> <span class='ident'>lo</span> <span class='op'>&lt;=</span> <span class='ident'>x</span> <span class='op'>&amp;&amp;</span> <span class='ident'>x</span> <span class='op'>&lt;</span> <span class='ident'>hi</span>)
+}
+
+<span class='kw'>enum</span> <span class='ident'>Tree</span> ... <span class='comment'>// as before</span>
+</pre>
+
+<h1 id="using-inductive-data" class='section-header'><a
+                           href="#using-inductive-data">Using inductive data</a></h1>
+<p>Hand-written proofs based on pattern matching.</p>
+
+<p>Help from editor integration or automated &ldquo;proof tactics&rdquo;.</p>
+
+<p>&nbsp;</p>
+
+<p>Coq supports compiling to Haskell, OCaml, Scheme...</p>
+
+<p>How about Rust? <a href="https://github.com/rust-lang/rfcs/issues/667">Work is underway.</a></p>
+
+<h1 id="dependent-types-for-rust?" class='section-header'><a
+                           href="#dependent-types-for-rust?">Dependent types for Rust?</a></h1>
+<p>Sounds like a fantasy...</p>
+
+<p>So did &ldquo;concurrent memory safety for C++&rdquo;.</p>
+
+<p>What will Rust and its offspring look like in another decade?</p>
+
+<h1 id="what-to-read-next" class='section-header'><a
+                           href="#what-to-read-next">What to read next</a></h1>
+<p>Pierce et al. <a href="http://www.cis.upenn.edu/%7Ebcpierce/sf/current/index.html"><em>Software Foundations</em></a>.<br/>Free online w/ machine-guided exercises!</p>
+
+<p>Norell &amp; Chapman. &ldquo;<a href="http://www.cse.chalmers.se/%7Eulfn/darcs/AFP08/LectureNotes/AgdaIntro.pdf">Dependently Typed Programming in Agda</a>&rdquo;</p>
+
+<p>The <a href="http://www.idris-lang.org/documentation/">Idris documentation</a>.</p>
+
+<p>Pierce. (2002). <a href="https://www.cis.upenn.edu/%7Ebcpierce/tapl/"><em>Types and Programming Languages</em></a>. MIT Press.</p>
+
+<h1 id="other-recommended-reading" class='section-header'><a
+                           href="#other-recommended-reading">Other recommended reading</a></h1>
+<div style="font-size: 60%;">
+
+<p>Gronski, J., Knowles, K., Tomb, A., Freund, S. N., & Flanagan, C. (2006). <a href="http://kennknowles.com/research/gronski-knowles-tomb-flanagan-freund.tr.06.sage.pdf">Sage: Hybrid checking for flexible specifications</a>. <i>Scheme and Functional Programming Workshop</i> (pp. 93-104).</p>
+
+<p>Harper, R. (2012). <i>Practical Foundations for Programming Languages</i> (<a href="http://www.cs.cmu.edu/~rwh/plbook/book.pdf">draft online</a>). Cambridge University Press.</p>
+
+<p>Löh, A., McBride, C., & Swierstra, W. (2010). <a href="http://www.andres-loeh.de/LambdaPi/">A tutorial implementation of a dependently typed lambda calculus</a>. <i>Fundamenta informaticae</i>, 102(2), pp. 177-207.</p>
+
+<p>Ou, X., Tan, G., Mandelbaum, Y., & Walker, D. (2004). <a href="https://www.cs.princeton.edu/~dpw/papers/DTDT-tr.pdf">Dynamic typing with dependent types</a>. <i>Exploring New Frontiers of Theoretical Informatics</i> (pp. 437-450). Springer US.</p>
+
+<p>Pierce, B. (Ed.) (2005). <a href="https://www.cis.upenn.edu/~bcpierce/attapl/"><i>Advanced Topics in Types and Programming Languages</i></a>. MIT Press.</p>
+
+<p>Rondon, P. M., Kawaguci, M., & Jhala, R. (2008). <a href="http://goto.ucsd.edu/~rjhala/liquid/liquid_types_techrep.pdf">Liquid types</a>. <i>ACM SIGPLAN Notices</i> 43(6), pp. 159-169.</p>
+
+<p>Wadler, P., & Findler, R. B. (2009). <a href="https://www.era.lib.ed.ac.uk/bitstream/handle/1842/3685/Well-typed%20programs%20can%20t%20be%20blamed.pdf?sequence=2">Well-typed programs can’t be blamed</a>. <i>Programming Languages and Systems</i> (pp. 1-16). Springer Berlin Heidelberg.</p>
+
+</div>
+
+    <script type="text/javascript">
+        window.playgroundUrl = "";
+    </script>
+    
+</body>
+</html>
