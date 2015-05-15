@@ -21,7 +21,7 @@ fn foo(T: type, n: usize, v: &Vec(T, n)) {
 }
 ```
 
-Dependent types for Rust?
+Why might we want this in Rust?
 
 * **Simplify** the compile-time language
 * **Prove correctness** of programs and APIs
